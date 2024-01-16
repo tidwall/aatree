@@ -1,6 +1,12 @@
+// https://github.com/tidwall/aat
+//
 // Copyright 2023 Joshua J Baker. All rights reserved.
 // Use of this source code is governed by an MIT-style
 // license that can be found in the LICENSE file.
+
+// Do not use this in production. 
+// This is only the development file for the aat.h single header file, which is
+// all you need to generate a custom aat binary search tree.
 
 ////////////////////////////////////////////////////////////////////////////////
 // AA-tree declarations
@@ -13,20 +19,16 @@ struct aat_node {
     int key;
 };
 
-struct aat_tree {
-    struct aat_node *root;
-};
-
-struct aat_node *aat_insert(struct aat_tree *tree, struct aat_node *item);
-struct aat_node *aat_delete(struct aat_tree *tree, struct aat_node *key);
-struct aat_node *aat_search(struct aat_tree *tree, struct aat_node *key);
-struct aat_node *aat_delete_first(struct aat_tree *tree);
-struct aat_node *aat_delete_last(struct aat_tree *tree);
-struct aat_node *aat_first(struct aat_tree *tree);
-struct aat_node *aat_last(struct aat_tree *tree);
-struct aat_node *aat_iter(struct aat_tree *tree, struct aat_node *key);
-struct aat_node *aat_prev(struct aat_tree *tree, struct aat_node *item);
-struct aat_node *aat_next(struct aat_tree *tree, struct aat_node *item);
+struct aat_node *aat_insert(struct aat_node **root, struct aat_node *item);
+struct aat_node *aat_delete(struct aat_node **root, struct aat_node *key);
+struct aat_node *aat_search(struct aat_node **root, struct aat_node *key);
+struct aat_node *aat_delete_first(struct aat_node **root);
+struct aat_node *aat_delete_last(struct aat_node **root);
+struct aat_node *aat_first(struct aat_node **root);
+struct aat_node *aat_last(struct aat_node **root);
+struct aat_node *aat_iter(struct aat_node **root, struct aat_node *key);
+struct aat_node *aat_prev(struct aat_node **root, struct aat_node *item);
+struct aat_node *aat_next(struct aat_node **root, struct aat_node *item);
 
 ////////////////////////////////////////////////////////////////////////////////
 // AA-tree implementation
@@ -94,9 +96,9 @@ static struct aat_node *aat_insert0(struct aat_node *node,
     return node;
 }
 
-struct aat_node *aat_insert(struct aat_tree *tree, struct aat_node *item) {
+struct aat_node *aat_insert(struct aat_node **root, struct aat_node *item) {
     struct aat_node *replaced = 0;
-    tree->root = aat_insert0(tree->root, item, &replaced);
+    *root = aat_insert0(*root, item, &replaced);
     if (replaced != item) {
         aat_clear(replaced);
     }
@@ -174,16 +176,16 @@ static struct aat_node *aat_delete_last0(struct aat_node *node,
     return node;
 }
 
-struct aat_node *aat_delete_first(struct aat_tree *tree) {
+struct aat_node *aat_delete_first(struct aat_node **root) {
     struct aat_node *deleted = 0;
-    tree->root = aat_delete_first0(tree->root, &deleted);
+    *root = aat_delete_first0(*root, &deleted);
     aat_clear(deleted);
     return deleted;
 }
 
-struct aat_node *aat_delete_last(struct aat_tree *tree) {
+struct aat_node *aat_delete_last(struct aat_node **root) {
     struct aat_node *deleted = 0;
-    tree->root = aat_delete_last0(tree->root, &deleted);
+    *root = aat_delete_last0(*root, &deleted);
     aat_clear(deleted);
     return deleted;
 }
@@ -221,16 +223,16 @@ static struct aat_node *aat_delete0(struct aat_node *node,
     return node;
 }
 
-struct aat_node *aat_delete(struct aat_tree *tree, struct aat_node *key) {
+struct aat_node *aat_delete(struct aat_node **root, struct aat_node *key) {
     struct aat_node *deleted = 0;
-    tree->root = aat_delete0(tree->root, key, &deleted);
+    *root = aat_delete0(*root, key, &deleted);
     aat_clear(deleted);
     return deleted;
 }
 
-struct aat_node *aat_search(struct aat_tree *tree, struct aat_node *key) {
+struct aat_node *aat_search(struct aat_node **root, struct aat_node *key) {
     struct aat_node *found = 0;
-    struct aat_node *node = tree->root;
+    struct aat_node *node = *root;
     while (node) {
         int cmp = aat_compare(key, node);
         if (cmp < 0) {
@@ -245,8 +247,8 @@ struct aat_node *aat_search(struct aat_tree *tree, struct aat_node *key) {
     return found;
 }
 
-struct aat_node *aat_first(struct aat_tree *tree) {
-    struct aat_node *node = tree->root;
+struct aat_node *aat_first(struct aat_node **root) {
+    struct aat_node *node = *root;
     if (node) {
         while (node->left) {
             node = node->left;
@@ -255,8 +257,8 @@ struct aat_node *aat_first(struct aat_tree *tree) {
     return node;
 }
 
-struct aat_node *aat_last(struct aat_tree *tree) {
-    struct aat_node *node = tree->root;
+struct aat_node *aat_last(struct aat_node **root) {
+    struct aat_node *node = *root;
     if (node) {
         while (node->right) {
             node = node->right;
@@ -265,9 +267,9 @@ struct aat_node *aat_last(struct aat_tree *tree) {
     return node;
 }
 
-struct aat_node *aat_iter(struct aat_tree *tree, struct aat_node *key) {
+struct aat_node *aat_iter(struct aat_node **root, struct aat_node *key) {
     struct aat_node *found = 0;
-    struct aat_node *node = tree->root;
+    struct aat_node *node = *root;
     while (node) {
         int cmp = aat_compare(key, node);
         if (cmp < 0) {
@@ -283,11 +285,11 @@ struct aat_node *aat_iter(struct aat_tree *tree, struct aat_node *key) {
     return found;
 }
 
-static struct aat_node *aat_parent(struct aat_tree *tree, 
+static struct aat_node *aat_parent(struct aat_node **root, 
     struct aat_node *item)
 {
     struct aat_node *parent = 0;
-    struct aat_node *node = tree->root;
+    struct aat_node *node = *root;
     while (node) {
         int cmp = aat_compare(item, node);
         if (cmp < 0) {
@@ -303,7 +305,7 @@ static struct aat_node *aat_parent(struct aat_tree *tree,
     return parent;
 }
 
-struct aat_node *aat_next(struct aat_tree *tree, struct aat_node *node) {
+struct aat_node *aat_next(struct aat_node **root, struct aat_node *node) {
     if (node) {
         if (node->right) {
             node = node->right;
@@ -311,10 +313,10 @@ struct aat_node *aat_next(struct aat_tree *tree, struct aat_node *node) {
                 node = node->left;
             }
         } else {
-            struct aat_node *parent = aat_parent(tree, node);
-            while (parent->left != node) {
+            struct aat_node *parent = aat_parent(root, node);
+            while (parent && parent->left != node) {
                 node = parent;
-                parent = aat_parent(tree, parent);
+                parent = aat_parent(root, parent);
             }
             node = parent;
         }
@@ -322,7 +324,7 @@ struct aat_node *aat_next(struct aat_tree *tree, struct aat_node *node) {
     return node;
 }
 
-struct aat_node *aat_prev(struct aat_tree *tree, struct aat_node *node) {
+struct aat_node *aat_prev(struct aat_node **root, struct aat_node *node) {
     if (node) {
         if (node->left) {
             node = node->left;
@@ -330,10 +332,10 @@ struct aat_node *aat_prev(struct aat_tree *tree, struct aat_node *node) {
                 node = node->right;
             }
         } else {
-            struct aat_node *parent = aat_parent(tree, node);
-            while (parent->right != node) {
+            struct aat_node *parent = aat_parent(root, node);
+            while (parent && parent->right != node) {
                 node = parent;
-                parent = aat_parent(tree, parent);
+                parent = aat_parent(root, parent);
             }
             node = parent;
         }

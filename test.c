@@ -10,32 +10,22 @@
 #include <stdio.h>
 #include <assert.h>
 #include <string.h>
-
-// BEGIN AATREE_H
+#include "aat.h"
 
 struct aat_node {
-    struct aat_node *left;
-    struct aat_node *right;
-    int level;
+    AAT_FIELDS(struct aat_node, left, right, level);
     int key;
 };
 
-struct aat_tree {
-    struct aat_node *root;
-};
+static int aat_compare(struct aat_node *a, struct aat_node *b) {
+    return a->key < b->key ? -1 : a->key > b->key;
+}
 
-struct aat_node *aat_insert(struct aat_tree *tree, struct aat_node *item);
-struct aat_node *aat_delete(struct aat_tree *tree, struct aat_node *key);
-struct aat_node *aat_search(struct aat_tree *tree, struct aat_node *key);
-struct aat_node *aat_delete_first(struct aat_tree *tree);
-struct aat_node *aat_delete_last(struct aat_tree *tree);
-struct aat_node *aat_first(struct aat_tree *tree);
-struct aat_node *aat_last(struct aat_tree *tree);
-struct aat_node *aat_iter(struct aat_tree *tree, struct aat_node *key);
-struct aat_node *aat_prev(struct aat_tree *tree, struct aat_node *item);
-struct aat_node *aat_next(struct aat_tree *tree, struct aat_node *item);
-
-// END AATREE_H
+#ifdef AAT_DEV
+AAT_DEF(extern, aat, struct aat_node)
+#else
+AAT_IMPL(aat, struct aat_node, left, right, level, aat_compare)
+#endif
 
 static void aat_valid0(struct aat_node *T, struct aat_node *P, int level, 
     int *index, int *last_key)
@@ -75,12 +65,12 @@ static void aat_valid0(struct aat_node *T, struct aat_node *P, int level,
     }
 }
 
-static void aat_valid(struct aat_tree *tree) {
-    if (tree->root) {
-        assert(tree->root->level > 0);
+static void aat_valid(struct aat_node **root) {
+    if (*root) {
+        assert((*root)->level > 0);
         int index = 0;
         int last_key = 0;
-        aat_valid0(tree->root, 0, tree->root->level, &index, &last_key);
+        aat_valid0(*root, 0, (*root)->level, &index, &last_key);
     }
 }
 
@@ -108,16 +98,14 @@ static void aat_print0(struct aat_node *T, unsigned long long int n) {
 
 }
 
-void aat_print(struct aat_tree *tree) {
+void aat_print(struct aat_node **root) {
     printf("digraph aa_tree {\n");
     printf("node [shape = record];\n");
-    if (tree->root) {
-        aat_print0(tree->root, 1);
+    if (*root) {
+        aat_print0(*root, 1);
     }
     printf("}\n");
 }
-
-
 
 static int64_t getnow(void) {
     struct timespec now;
@@ -145,7 +133,7 @@ static void shuffle(void *array, size_t numels, size_t elsize) {
 
 void bench() {
     int N = 1000000;
-    struct aat_tree tree = { 0 };
+    struct aat_node *root = 0;
     struct aat_node *nodes = malloc(N*sizeof(struct aat_node));
     assert(nodes);
     memset(nodes, 0, N*sizeof(struct aat_node));
@@ -155,7 +143,7 @@ void bench() {
     shuffle(nodes, N, sizeof(struct aat_node));
     int64_t start = getnow();
     for (int i = 0; i < N; i++) {
-        aat_insert(&tree, &nodes[i]);
+        aat_insert(&root, &nodes[i]);
     }
     double elapsed = (getnow()-start)/1e9;
     fprintf(stderr, "insert:       %d items in %.2f secs, %.2f ns/op, %.0f/sec\n", 
@@ -169,7 +157,7 @@ void bench() {
     shuffle(keys, N, sizeof(int));
     start = getnow();
     for (int i = 0; i < N; i++) {
-        aat_search(&tree, key_node(keys[i]));
+        assert(aat_search(&root, key_node(keys[i]))->key == keys[i]);
     }
     elapsed = (getnow()-start)/1e9;
     fprintf(stderr, "search:       %d items in %.2f secs, %.2f ns/op, %.0f/sec\n", 
@@ -178,7 +166,7 @@ void bench() {
     shuffle(keys, N, sizeof(int));
     start = getnow();
     for (int i = 0; i < N; i++) {
-        assert(aat_delete(&tree, key_node(keys[i]))->key == keys[i]);
+        assert(aat_delete(&root, key_node(keys[i]))->key == keys[i]);
     }
     elapsed = (getnow()-start)/1e9;
     fprintf(stderr, "delete:       %d items in %.2f secs, %.2f ns/op, %.0f/sec\n", 
@@ -186,13 +174,13 @@ void bench() {
 
     shuffle(nodes, N, sizeof(struct aat_node));
     for (int i = 0; i < N; i++) {
-        aat_insert(&tree, &nodes[i]);
+        aat_insert(&root, &nodes[i]);
     }
 
     shuffle(keys, N, sizeof(int));
     start = getnow();
     for (int i = 0; i < N; i++) {
-        aat_delete_first(&tree);
+        aat_delete_first(&root);
     }
     elapsed = (getnow()-start)/1e9;
     fprintf(stderr, "delete-first: %d items in %.2f secs, %.2f ns/op, %.0f/sec\n", 
@@ -200,12 +188,12 @@ void bench() {
 
     shuffle(nodes, N, sizeof(struct aat_node));
     for (int i = 0; i < N; i++) {
-        assert(!aat_insert(&tree, &nodes[i]));
+        assert(!aat_insert(&root, &nodes[i]));
     }
     shuffle(keys, N, sizeof(int));
     start = getnow();
     for (int i = 0; i < N; i++) {
-        assert(aat_delete_last(&tree)->key == N-i-1);
+        assert(aat_delete_last(&root)->key == N-i-1);
     }
     elapsed = (getnow()-start)/1e9;
     fprintf(stderr, "delete-last:  %d items in %.2f secs, %.2f ns/op, %.0f/sec\n", 
@@ -229,7 +217,7 @@ int main(int argc, char *argv[]) {
     fprintf(stderr, "Running tests...\n");
 
     int N = 1000;
-    struct aat_tree tree = { 0 };
+    struct aat_node *root = 0;
     struct aat_node *nodes = malloc(N*sizeof(struct aat_node));
     assert(nodes);
     memset(nodes, 0, N*sizeof(struct aat_node));
@@ -239,11 +227,11 @@ int main(int argc, char *argv[]) {
     shuffle(nodes, N, sizeof(struct aat_node));
     // int64_t start = getnow();
     for (int i = 0; i < N; i++) {
-        assert(!aat_search(&tree, &nodes[i]));
-        assert(!aat_insert(&tree, &nodes[i]));
-        assert(aat_search(&tree, &nodes[i]));
-        assert(aat_search(&tree, &nodes[i])->key == nodes[i].key);
-        aat_valid(&tree);
+        assert(!aat_search(&root, &nodes[i]));
+        assert(!aat_insert(&root, &nodes[i]));
+        assert(aat_search(&root, &nodes[i]));
+        assert(aat_search(&root, &nodes[i])->key == nodes[i].key);
+        aat_valid(&root);
     }
 
     // double elapsed = (getnow()-start)/1e9;
@@ -252,66 +240,66 @@ int main(int argc, char *argv[]) {
 
     // sequentially check for every key
     for (int i = 0; i < N; i++) {
-        assert(aat_search(&tree, key_node(i))->key == i);
+        assert(aat_search(&root, key_node(i))->key == i);
     }
-    assert(!aat_search(&tree, key_node(-1)));
-    assert(!aat_search(&tree, key_node(N)));
+    assert(!aat_search(&root, key_node(-1)));
+    assert(!aat_search(&root, key_node(N)));
 
     // sequentially deleted all nodes
     for (int i = 0; i < N; i++) {
-        assert(aat_delete(&tree, key_node(i))->key == i);
-        aat_valid(&tree);
-        assert(!aat_search(&tree, key_node(i)));
-        assert(!aat_delete(&tree, key_node(i)));
+        assert(aat_delete(&root, key_node(i))->key == i);
+        aat_valid(&root);
+        assert(!aat_search(&root, key_node(i)));
+        assert(!aat_delete(&root, key_node(i)));
         
     }
 
     // reinsert all
     shuffle(nodes, N, sizeof(struct aat_node));
     for (int i = 0; i < N; i++) {
-        assert(!aat_insert(&tree, &nodes[i]));
-        assert(aat_search(&tree, &nodes[i]));
-        assert(aat_search(&tree, &nodes[i])->key == nodes[i].key);
+        assert(!aat_insert(&root, &nodes[i]));
+        assert(aat_search(&root, &nodes[i]));
+        assert(aat_search(&root, &nodes[i])->key == nodes[i].key);
     }
 
     // randomly delete all nodes
     for (int i = 0; i < N; i++) {
-        assert(aat_delete(&tree, &nodes[i])->key == nodes[i].key);
-        aat_valid(&tree);
-        assert(!aat_search(&tree, &nodes[i]));
-        assert(!aat_delete(&tree, &nodes[i]));
+        assert(aat_delete(&root, &nodes[i])->key == nodes[i].key);
+        aat_valid(&root);
+        assert(!aat_search(&root, &nodes[i]));
+        assert(!aat_delete(&root, &nodes[i]));
     }
 
     // reinsert all
     shuffle(nodes, N, sizeof(struct aat_node));
     for (int i = 0; i < N; i++) {
-        assert(!aat_insert(&tree, &nodes[i]));
+        assert(!aat_insert(&root, &nodes[i]));
     }
 
     // delete_min all nodes
     for (int i = 0; i < N; i++) {
-        assert(aat_first(&tree)->key == i);
-        assert(aat_delete_first(&tree)->key == i);
-        aat_valid(&tree);
+        assert(aat_first(&root)->key == i);
+        assert(aat_delete_first(&root)->key == i);
+        aat_valid(&root);
     }
 
     // reinsert all
     shuffle(nodes, N, sizeof(struct aat_node));
     for (int i = 0; i < N; i++) {
-        assert(!aat_insert(&tree, &nodes[i]));
+        assert(!aat_insert(&root, &nodes[i]));
     }
 
     // delete_max all nodes
     for (int i = 0; i < N; i++) {
-        assert(aat_last(&tree)->key == N-i-1);
-        assert(aat_delete_last(&tree)->key == N-i-1);
-        aat_valid(&tree);
+        assert(aat_last(&root)->key == N-i-1);
+        assert(aat_delete_last(&root)->key == N-i-1);
+        aat_valid(&root);
     }
 
     // reinsert all
     shuffle(nodes, N, sizeof(struct aat_node));
     for (int i = 0; i < N; i++) {
-        assert(!aat_insert(&tree, &nodes[i]));
+        assert(!aat_insert(&root, &nodes[i]));
     }
 
     // delete half the nodes
@@ -324,32 +312,32 @@ int main(int argc, char *argv[]) {
     struct aat_node **deleted = malloc(N*sizeof(struct aat_node*));
     assert(deleted);
     for (int i = 0; i < N/2; i++) {
-        deleted[i] = aat_delete(&tree, key_node(keys[i]));
+        deleted[i] = aat_delete(&root, key_node(keys[i]));
         assert(deleted[i]->key == keys[i]);
-        assert(!aat_delete(&tree, key_node(keys[i])));
-        assert(!aat_search(&tree, key_node(keys[i])));
-        aat_valid(&tree);
+        assert(!aat_delete(&root, key_node(keys[i])));
+        assert(!aat_search(&root, key_node(keys[i])));
+        aat_valid(&root);
     }
 
     // shuffle the half and reinsert
     shuffle(deleted, N/2, sizeof(struct aat_node*));
     for (int i = 0; i < N/2; i++) {
-        assert(!aat_search(&tree, deleted[i]));
-        assert(!aat_insert(&tree, deleted[i]));
-        assert(aat_search(&tree, deleted[i])->key == deleted[i]->key);
-        assert(aat_insert(&tree, deleted[i]) == deleted[i]);
-        aat_valid(&tree);
+        assert(!aat_search(&root, deleted[i]));
+        assert(!aat_insert(&root, deleted[i]));
+        assert(aat_search(&root, deleted[i])->key == deleted[i]->key);
+        assert(aat_insert(&root, deleted[i]) == deleted[i]);
+        aat_valid(&root);
     }
 
     // sequentially check for every key
     for (int i = 0; i < N; i++) {
-        assert(aat_search(&tree, key_node(i))->key == i);
+        assert(aat_search(&root, key_node(i))->key == i);
     }
-    assert(!aat_search(&tree, key_node(-1)));
-    assert(!aat_search(&tree, key_node(N)));
+    assert(!aat_search(&root, key_node(-1)));
+    assert(!aat_search(&root, key_node(N)));
 
     // iterators    
-    tree.root = 0;
+    root = 0;
     nodes = malloc(N*sizeof(struct aat_node));
     assert(nodes);
     memset(nodes, 0, N*sizeof(struct aat_node));
@@ -358,12 +346,12 @@ int main(int argc, char *argv[]) {
     }
     shuffle(nodes, N, sizeof(struct aat_node));
     for (int i = 0; i < N; i++) {
-        assert(!aat_insert(&tree, &nodes[i]));
-        assert(aat_search(&tree, &nodes[i])->key == nodes[i].key);
-        aat_valid(&tree);
+        assert(!aat_insert(&root, &nodes[i]));
+        assert(aat_search(&root, &nodes[i])->key == nodes[i].key);
+        aat_valid(&root);
     }
     for (int i = -9; i < N*10; i++) {
-        struct aat_node *iter = aat_iter(&tree, key_node(i));
+        struct aat_node *iter = aat_iter(&root, key_node(i));
         if (i < 0) {
             assert(iter->key == 0);
         } else if (i > (N-1)*10) {
@@ -373,26 +361,26 @@ int main(int argc, char *argv[]) {
             int j = i % 10 == 0 ? i : i / 10 * 10 + 10;
             assert(iter->key == j);
             for (int j = iter->key+10; j < N*10; j += 10) {
-                iter = aat_next(&tree, iter);
+                iter = aat_next(&root, iter);
                 assert(iter);
                 assert(iter->key == j);
             }
         }
     }
 
-    struct aat_node *iter = aat_first(&tree);
+    struct aat_node *iter = aat_first(&root);
     assert(iter->key == 0);
 
     for (int i = 10; i < N*10; i += 10) {
-        iter = aat_next(&tree, iter);
+        iter = aat_next(&root, iter);
         assert(iter->key == i);
     }
 
-    iter = aat_last(&tree);
+    iter = aat_last(&root);
     assert(iter->key == (N-1)*10);
 
     for (int i = (N-2)*10; i <= 0; i -= 10) {
-        iter = aat_prev(&tree, iter);
+        iter = aat_prev(&root, iter);
         assert(iter->key == i);
     }
 
