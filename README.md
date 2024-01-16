@@ -82,6 +82,24 @@ int main(void) {
 // key: 8, value: 3 (ITER)
 ```
 
+## API
+
+Using the `AAT_IMPL` from the example above, the following functions will 
+become be available.
+
+```C
+struct my_node *my_tree_insert(struct my_node **root, struct my_node *item);
+struct my_node *my_tree_delete(struct my_node **root, struct my_node *key);
+struct my_node *my_tree_search(struct my_node **root, struct my_node *key);
+struct my_node *my_tree_delete_first(struct my_node **root);
+struct my_node *my_tree_delete_last(struct my_node **root);
+struct my_node *my_tree_first(struct my_node **root);
+struct my_node *my_tree_last(struct my_node **root);
+struct my_node *my_tree_iter(struct my_node **root, struct my_node *key);
+struct my_node *my_tree_prev(struct my_node **root, struct my_node *item);
+struct my_node *my_tree_next(struct my_node **root, struct my_node *item);
+```
+
 ## Running tests
 
 Test the `aat.h` single header file.
