@@ -117,7 +117,7 @@ $ cc -DAAT_DEV aat-dev.c test.c && ./a.out
 ## Running benchmarks
 
 ```sh
-cc -O3 aat.c test.c && ./a.out bench
+cc -O3 test.c && ./a.out bench
 ```
 
 The following benchmarks were run on my 2021 Apple M1 Max using clang-17. 
